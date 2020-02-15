@@ -32,7 +32,7 @@ def _path(opt):
 
     # set up path to data (specific to each dataset)
     dt = opt['datatype'].split(':')[0]
-    return os.path.join(opt['datapath'], 'MovieTriples_Dataset.tar')
+    return os.path.join(opt['datapath'], 'MovieTriples_Dataset')
 
 class MovieTriplesTeacher(DialogTeacher):
     def __init__(self, opt, shared=None):

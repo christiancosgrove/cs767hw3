@@ -25,8 +25,7 @@ class HRED(nn.Module):
     def __init__(self, options):
         super(HRED, self).__init__()
         print('INIT')
-        self.encoder = BaseEncoder(options.vocab_size, options.emb_size, options.ut_hid_size, options)
-        self.ses_enc = SessionEncoder(options.ses_hid_size, options.ut_hid_size, options)
+        self.encoder = BigEncoder(options)
         self.decoder = Decoder(options)
         print('DONE INIT')
         
@@ -47,7 +46,36 @@ class HRED(nn.Module):
         preds, lmpreds = self.decoder((final_session_o, u3, u3_lens))
         
         return preds, lmpreds
+
+    def reorder_encoder_states(self, encoder_states, indices):
+        """
+        Reorder the encoder states to select only the given batch indices.
+
+        Since encoder_state can be arbitrary, you must implement this yourself.
+        Typically you will just want to index select on the batch dimension.
+        """
+        print('states', encoder_states)
+        return encoder_states
+        # h, c = encoder_states
+        # return h[:, indices, :], c[:, indices, :]
+
+
+class BigEncoder(nn.Module):
+    def __init__(self, options):
+        super(BigEncoder, self).__init__()
+        self.encoder = BaseEncoder(options.vocab_size, options.emb_size, options.ut_hid_size, options)
+        self.ses_enc = SessionEncoder(options.ses_hid_size, options.ut_hid_size, options)
     
+    def forward(self, u1, u2):
+        if use_cuda:
+            u1 = u1.cuda()
+            u2 = u2.cuda()
+        # import pdb; pdb.set_trace()
+        print(u1.shape)
+        o1, o2 = self.encoder((u1, u1.shape[1])), self.encoder((u2, u2.shape[1]))
+        qu_seq = torch.cat((o1, o2), 1)
+        final_session_o = self.ses_enc(qu_seq)
+        return final_session_o
     
 # encode each sentence utterance into a single vector
 class BaseEncoder(nn.Module):
@@ -63,7 +91,9 @@ class BaseEncoder(nn.Module):
                           num_layers=self.num_lyr, bidirectional=options.bidi, batch_first=True, dropout=options.drp)
 
     def forward(self, inp):
-        x, x_lens = inp[0], inp[1]
+        # import pdb; pdb.set_trace()
+        x, x_lens = inp[0], torch.LongTensor([inp[1]]).reshape(1)
+        # import pdb; pdb.set_trace()
         bt_siz, seq_len = x.size(0), x.size(1)
         h_0 = Variable(torch.zeros(self.direction * self.num_lyr, bt_siz, self.hid_size))
         if use_cuda:
@@ -145,7 +175,7 @@ class Decoder(nn.Module):
         
         target_emb = torch.nn.utils.rnn.pack_padded_sequence(target_emb, target_lens, batch_first=True)
         
-        init_hidn = self.tanh(self.ses_to_dec(ses_encoding))
+        init_hidn = self.tanh(self.ses_to_decoder(ses_encoding))
         init_hidn = init_hidn.view(self.num_lyr, target.size(0), self.hid_size)
         
         hid_o, hid_n = self.rnn(target_emb, init_hidn)
@@ -177,7 +207,7 @@ class Decoder(nn.Module):
         
     def do_decode(self, siz, seq_len, ses_encoding, target):
         ses_inf_vec = self.ses_inf(ses_encoding)
-        ses_encoding = self.tanh(self.ses_to_dec(ses_encoding))
+        ses_encoding = self.tanh(self.ses_to_decoder(ses_encoding))
         hid_n, preds, lm_preds = ses_encoding, [], []
         
         hid_n = hid_n.view(self.num_lyr, siz, self.hid_size)
