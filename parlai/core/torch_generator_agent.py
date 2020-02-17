@@ -843,6 +843,7 @@ class TorchGeneratorAgent(TorchAgent, ABC):
         if isinstance(model, torch.nn.parallel.DistributedDataParallel):
             model = self.model.module
         encoder_states = model.encoder(*self._encoder_input(batch))
+        print("encoder_states: ", encoder_states)
         if batch.text_vec is not None:
             dev = batch.text_vec.device
         else:
@@ -868,6 +869,8 @@ class TorchGeneratorAgent(TorchAgent, ABC):
         decoder_input = (
             torch.LongTensor([self.START_IDX]).expand(bsz * beam_size, 1).to(dev)
         )
+        # import pdb; pdb.set_trace()
+        print("decoder_input: ", decoder_input)
 
         inds = torch.arange(bsz).to(dev).unsqueeze(1).repeat(1, beam_size).view(-1)
         encoder_states = model.reorder_encoder_states(encoder_states, inds)
@@ -878,6 +881,7 @@ class TorchGeneratorAgent(TorchAgent, ABC):
                 # exit early if possible
                 break
 
+            # import pdb; pdb.set_trace()
             score, incr_state = model.decoder(decoder_input, encoder_states, incr_state)
             # only need the final hidden state to make the word prediction
             score = score[:, -1:, :]

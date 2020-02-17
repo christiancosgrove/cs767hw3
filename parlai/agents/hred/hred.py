@@ -467,9 +467,9 @@ class HredAgent(TorchGeneratorAgent):
         b = super().batchify(*args, **kwargs)
         tvec = self.history.history_vecs[-1]
         indices = [i for i, x in enumerate(tvec) if x == self.dict['</s>']]
-        b['u1'] = tvec[1:indices[0]]
-        b['u2'] = tvec[indices[0]+2:indices[1]]
-        b['u3'] = tvec[indices[1]+2:indices[2]]
+        b['u1'] = torch.LongTensor(tvec[1:indices[0]]).reshape(1)
+        b['u2'] = torch.LongTensor(tvec[indices[0]+2:indices[1]]).reshape(1)
+        b['u3'] = torch.LongTensor(tvec[indices[1]+2:indices[2]]).reshape(1)
 
         return b
 
@@ -485,104 +485,143 @@ class HredAgent(TorchGeneratorAgent):
         return (torch.LongTensor(batch.u1).reshape(1,-1), torch.LongTensor(batch.u2).reshape(1,-1), )
 
 
-    # def _generate(self, batch, beam_size, max_ts):
-    #     """
-    #     Generate an output with beam search.
+    def _generate(self, batch, beam_size, max_ts):
+        """
+        Generate an output with beam search.
 
-    #     Depending on the options, this may perform greedy/topk/nucleus generation.
+        Depending on the options, this may perform greedy/topk/nucleus generation.
 
-    #     :param Batch batch:
-    #         Batch structure with input and labels
-    #     :param int beam_size:
-    #         Size of each beam during the search
-    #     :param int max_ts:
-    #         the maximum length of the decoded sequence
+        :param Batch batch:
+            Batch structure with input and labels
+        :param int beam_size:
+            Size of each beam during the search
+        :param int max_ts:
+            the maximum length of the decoded sequence
 
-    #     :return:
-    #         tuple (beam_pred_scores, n_best_pred_scores, beams)
+        :return:
+            tuple (beam_pred_scores, n_best_pred_scores, beams)
 
-    #         - beam_preds_scores: list of (prediction, score) pairs for each sample in
-    #           Batch
-    #         - n_best_preds_scores: list of n_best list of tuples (prediction, score)
-    #           for each sample from Batch
-    #         - beams :list of Beam instances defined in Beam class, can be used for any
-    #           following postprocessing, e.g. dot logging.
-    #     """
-    #     model = self.model
-    #     if isinstance(model, torch.nn.parallel.DistributedDataParallel):
-    #         model = self.model.module
-    #     encoder_states = model.encoder(*self._encoder_input(batch))
-    #     if batch.text_vec is not None:
-    #         dev = batch.text_vec.device
-    #     else:
-    #         dev = batch.label_vec.device
+            - beam_preds_scores: list of (prediction, score) pairs for each sample in
+              Batch
+            - n_best_preds_scores: list of n_best list of tuples (prediction, score)
+              for each sample from Batch
+            - beams :list of Beam instances defined in Beam class, can be used for any
+              following postprocessing, e.g. dot logging.
+        """
+        model = self.model
+        u1, u2, u3 = batch['u1'], batch['u2'], batch['u3']
+        u1_lens, u2_lens, u3_lens = torch.LongTensor([u1.size(0)]), torch.LongTensor([u2.size(0)]), torch.LongTensor([u3.size(0)])
+        
+            
+        if use_cuda:
+            u1 = u1.cuda()
+            u2 = u2.cuda()
+            u3 = u3.cuda()
+        
+        o1, o2 = model.base_enc((u1, u1_lens)), model.base_enc((u2, u2_lens))
+        qu_seq = torch.cat((o1, o2), 1)
+        # if we need to decode the intermediate queries we may need the hidden states
+        final_session_o = model.ses_enc(qu_seq)
+        # forward(self, ses_encoding, x=None, x_lens=None, beam=5 ):
+        for k in range(options.bt_siz):
+            sent = generate(model, final_session_o[k, :, :].unsqueeze(0), options)
+            pt = tensor_to_sent(sent, inv_dict)
+            # greedy true for below because only beam generates a tuple of sequence and probability
+            gt = tensor_to_sent(u3[k, :].unsqueeze(0).data.cpu().numpy(), inv_dict, True)
+            fout.write(str(gt[0]) + "    |    " + str(pt[0][0]) + "\n")
+            fout.flush()
 
-    #     bsz = (
-    #         len(batch.text_lengths)
-    #         if batch.text_lengths is not None
-    #         else len(batch.image)
-    #     )
-    #     if batch.text_vec is not None:
-    #         batchsize = batch.text_vec.size(0)
-    #         beams = [
-    #             self._treesearch_factory(dev).set_context(
-    #                 self._get_context(batch, batch_idx)
-    #             )
-    #             for batch_idx in range(batchsize)
-    #         ]
-    #     else:
-    #         beams = [self._treesearch_factory(dev) for _ in range(bsz)]
+            if not options.pretty:
+                print(pt)
+                print("Ground truth {} {} \n".format(gt, get_sent_ll(u3[k, :].unsqueeze(0), u3_lens[k:k+1], model, criteria, final_session_o)))
+            else:
+                print(gt[0], "|", pt[0][0])
 
-    #     # repeat encoder outputs and decoder inputs
-    #     decoder_input = (
-    #         torch.LongTensor([self.START_IDX]).expand(bsz * beam_size, 1).to(dev)
-    #     )
 
-    #     inds = torch.arange(bsz).to(dev).unsqueeze(1).repeat(1, beam_size).view(-1)
-    #     encoder_states = model.reorder_encoder_states(encoder_states, inds)
-    #     incr_state = None
+
+
+
+
+
+
+        model = self.model
+        if isinstance(model, torch.nn.parallel.DistributedDataParallel):
+            model = self.model.module
+        # session encodings
+        encoder_states = model.encoder(*self._encoder_input(batch))
+        if batch.text_vec is not None:
+            dev = batch.text_vec.device
+        else:
+            dev = batch.label_vec.device
+
+        bsz = (
+            len(batch.text_lengths)
+            if batch.text_lengths is not None
+            else len(batch.image)
+        )
+        if batch.text_vec is not None:
+            batchsize = batch.text_vec.size(0)
+            beams = [
+                self._treesearch_factory(dev).set_context(
+                    self._get_context(batch, batch_idx)
+                )
+                for batch_idx in range(batchsize)
+            ]
+        else:
+            beams = [self._treesearch_factory(dev) for _ in range(bsz)]
+
+    
+
+        # repeat encoder outputs and decoder inputs
+        decoder_input = (
+            torch.LongTensor([self.START_IDX]).expand(bsz * beam_size, 1).to(dev)
+        )
+
+        inds = torch.arange(bsz).to(dev).unsqueeze(1).repeat(1, beam_size).view(-1)
+        encoder_states = model.reorder_encoder_states(encoder_states, inds)
+        incr_state = None
 
         
 
-    #     for _ts in range(max_ts):
-    #         if all((b.is_done() for b in beams)):
-    #             # exit early if possible
-    #             break
+        for _ts in range(max_ts):
+            if all((b.is_done() for b in beams)):
+                # exit early if possible
+                break
 
-    #         score, incr_state = model.decoder((encoder_states, torch.LongTensor(batch.u3).reshape(1,-1), torch.LongTensor([len(batch.u3)]).reshape(1)))
-    #         # score, incr_state = model.decoder(decoder_input, encoder_states, incr_state)
-    #         # only need the final hidden state to make the word prediction
-    #         score = score[:, -1:, :]
-    #         import pdb; pdb.set_trace()
-    #         score = model.output(score)
-    #         # score contains softmax scores for bsz * beam_size samples
-    #         score = score.view(bsz, beam_size, -1)
-    #         score = F.log_softmax(score, dim=-1)
-    #         for i, b in enumerate(beams):
-    #             if not b.is_done():
-    #                 b.advance(score[i])
-    #         incr_state_inds = torch.cat(
-    #             [
-    #                 beam_size * i + b.get_backtrack_from_current_step()
-    #                 for i, b in enumerate(beams)
-    #             ]
-    #         )
-    #         incr_state = model.reorder_decoder_incremental_state(
-    #             incr_state, incr_state_inds
-    #         )
-    #         decoder_input = torch.index_select(decoder_input, 0, incr_state_inds)
-    #         selection = torch.cat(
-    #             [b.get_output_from_current_step() for b in beams]
-    #         ).unsqueeze(-1)
-    #         decoder_input = torch.cat([decoder_input, selection], dim=-1)
+            score, incr_state = model.decoder((encoder_states, torch.LongTensor(batch.u3).reshape(1,-1), torch.LongTensor([len(batch.u3)]).reshape(1)))
+            # score, incr_state = model.decoder(decoder_input, encoder_states, incr_state)
+            # only need the final hidden state to make the word prediction
+            score = score[:, -1:, :]
+            import pdb; pdb.set_trace()
+            score = model.output(score)
+            # score contains softmax scores for bsz * beam_size samples
+            score = score.view(bsz, beam_size, -1)
+            score = F.log_softmax(score, dim=-1)
+            for i, b in enumerate(beams):
+                if not b.is_done():
+                    b.advance(score[i])
+            incr_state_inds = torch.cat(
+                [
+                    beam_size * i + b.get_backtrack_from_current_step()
+                    for i, b in enumerate(beams)
+                ]
+            )
+            incr_state = model.reorder_decoder_incremental_state(
+                incr_state, incr_state_inds
+            )
+            decoder_input = torch.index_select(decoder_input, 0, incr_state_inds)
+            selection = torch.cat(
+                [b.get_output_from_current_step() for b in beams]
+            ).unsqueeze(-1)
+            decoder_input = torch.cat([decoder_input, selection], dim=-1)
 
-    #     # get all finilized candidates for each sample (and validate them)
-    #     n_best_beam_preds_scores = [b.get_rescored_finished() for b in beams]
+        # get all finilized candidates for each sample (and validate them)
+        n_best_beam_preds_scores = [b.get_rescored_finished() for b in beams]
 
-    #     # get the top prediction for each beam (i.e. minibatch sample)
-    #     beam_preds_scores = [n_best_list[0] for n_best_list in n_best_beam_preds_scores]
+        # get the top prediction for each beam (i.e. minibatch sample)
+        beam_preds_scores = [n_best_list[0] for n_best_list in n_best_beam_preds_scores]
 
-    #     return beam_preds_scores, beams
+        return beam_preds_scores, beams
 
     def state_dict(self):
         """

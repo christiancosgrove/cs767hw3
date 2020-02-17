@@ -25,8 +25,10 @@ class HRED(nn.Module):
     def __init__(self, options):
         super(HRED, self).__init__()
         print('INIT')
-        self.encoder = BigEncoder(options)
-        self.decoder = Decoder(options)
+        # self.encoder = BigEncoder(options)
+        self.base_enc = BaseEncoder(options.vocab_size, options.emb_size, options.ut_hid_size, options)
+        self.ses_enc = SessionEncoder(options.ses_hid_size, options.ut_hid_size, options)
+        self.dec = Decoder(options)
         print('DONE INIT')
         
     def forward(self, batch):
@@ -40,10 +42,10 @@ class HRED(nn.Module):
             u1 = u1.cuda()
             u2 = u2.cuda()
             u3 = u3.cuda()
-        o1, o2 = self.encoder((u1, u1_lens)), self.encoder((u2, u2_lens))
+        o1, o2 = self.base_enc((u1, u1_lens)), self.base_enc((u2, u2_lens))
         qu_seq = torch.cat((o1, o2), 1)
         final_session_o = self.ses_enc(qu_seq)
-        preds, lmpreds = self.decoder((final_session_o, u3, u3_lens))
+        preds, lmpreds = self.dec((final_session_o, u3, u3_lens))
         
         return preds, lmpreds
 
@@ -60,23 +62,23 @@ class HRED(nn.Module):
         # return h[:, indices, :], c[:, indices, :]
 
 
-class BigEncoder(nn.Module):
-    def __init__(self, options):
-        super(BigEncoder, self).__init__()
-        self.encoder = BaseEncoder(options.vocab_size, options.emb_size, options.ut_hid_size, options)
-        self.ses_enc = SessionEncoder(options.ses_hid_size, options.ut_hid_size, options)
+# class BigEncoder(nn.Module):
+#     def __init__(self, options):
+#         super(BigEncoder, self).__init__()
+#         self.encoder = BaseEncoder(options.vocab_size, options.emb_size, options.ut_hid_size, options)
+#         self.ses_enc = SessionEncoder(options.ses_hid_size, options.ut_hid_size, options)
     
-    def forward(self, u1, u2):
-        if use_cuda:
-            u1 = u1.cuda()
-            u2 = u2.cuda()
-        # import pdb; pdb.set_trace()
-        print(u1.shape)
-        o1, o2 = self.encoder((u1, u1.shape[1])), self.encoder((u2, u2.shape[1]))
-        qu_seq = torch.cat((o1, o2), 1)
-        final_session_o = self.ses_enc(qu_seq)
-        print("what session should be: ", final_session_o)
-        return final_session_o
+#     def forward(self, u1, u2):
+#         if use_cuda:
+#             u1 = u1.cuda()
+#             u2 = u2.cuda()
+#         # import pdb; pdb.set_trace()
+#         print(u1.shape)
+#         o1, o2 = self.encoder((u1, u1.shape[1])), self.encoder((u2, u2.shape[1]))
+#         qu_seq = torch.cat((o1, o2), 1)
+#         final_session_o = self.ses_enc(qu_seq)
+#         print("what session should be: ", final_session_o)
+#         return final_session_o
     
 # encode each sentence utterance into a single vector
 class BaseEncoder(nn.Module):
@@ -207,7 +209,8 @@ class Decoder(nn.Module):
         
         
     def do_decode(self, siz, seq_len, ses_encoding, target):
-        ses_inf_vec = self.ses_inf(ses_encoding)
+        print("ses_encoding do_decode:", ses_encoding)
+        ses_inf_vec = self.ses_inf(ses_encoding.type(torch.FloatTensor))
         ses_encoding = self.tanh(self.ses_to_decoder(ses_encoding))
         hid_n, preds, lm_preds = ses_encoding, [], []
         
@@ -256,7 +259,7 @@ class Decoder(nn.Module):
         dec_lmo = torch.cat(lm_preds, 1) if self.train_lm else None
         return dec_o, dec_lmo
 
-    def forward(self, ses_encoding, x, x_lens, beam=None):
+    def forward(self, ses_encoding, x, x_lens, beam=5):
         # import pdb; pdb.set_trace()
         # if len(input) == 1:
         #     ses_encoding = input
@@ -267,11 +270,11 @@ class Decoder(nn.Module):
         #     beam = 5
         # else:
         #     ses_encoding, x, x_lens, beam = input
-            
+        
         if use_cuda:
             x = x.cuda()
         siz, seq_len = x.size(0), x.size(1)
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         if self.teacher_forcing:
             dec_o, dec_lm = self.do_decode_tc(ses_encoding, x, x_lens)
         else:
