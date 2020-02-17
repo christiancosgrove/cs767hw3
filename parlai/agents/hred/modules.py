@@ -75,6 +75,7 @@ class BigEncoder(nn.Module):
         o1, o2 = self.encoder((u1, u1.shape[1])), self.encoder((u2, u2.shape[1]))
         qu_seq = torch.cat((o1, o2), 1)
         final_session_o = self.ses_enc(qu_seq)
+        print("what session should be: ", final_session_o)
         return final_session_o
     
 # encode each sentence utterance into a single vector
@@ -255,21 +256,22 @@ class Decoder(nn.Module):
         dec_lmo = torch.cat(lm_preds, 1) if self.train_lm else None
         return dec_o, dec_lmo
 
-    def forward(self, input):
-        if len(input) == 1:
-            ses_encoding = input
-            x, x_lens = None, None
-            beam = 5
-        elif len(input) == 3:
-            ses_encoding, x, x_lens = input
-            beam = 5
-        else:
-            ses_encoding, x, x_lens, beam = input
+    def forward(self, ses_encoding, x, x_lens, beam=None):
+        # import pdb; pdb.set_trace()
+        # if len(input) == 1:
+        #     ses_encoding = input
+        #     x, x_lens = None, None
+        #     beam = 5
+        # elif len(input) == 3:
+        #     ses_encoding, x, x_lens = input
+        #     beam = 5
+        # else:
+        #     ses_encoding, x, x_lens, beam = input
             
         if use_cuda:
             x = x.cuda()
         siz, seq_len = x.size(0), x.size(1)
-        
+        import pdb; pdb.set_trace()
         if self.teacher_forcing:
             dec_o, dec_lm = self.do_decode_tc(ses_encoding, x, x_lens)
         else:
