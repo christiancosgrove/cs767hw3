@@ -2,13 +2,14 @@ import pickle
 import os
 from parlai.core.dict import DictionaryAgent
 
-path = 'dat/MovieTriples_Dataset.tar'
+path = os.path.join(os.path.expanduser(
+    "~"), 'Downloads/dat/MovieTriples_Dataset')
 
 with open(os.path.join(path, 'Training.dict.pkl'), 'rb') as data_file:
     dictionary = pickle.load(data_file)
 
 
-parlai_dict = DictionaryAgent({'vocab_size' : 10004})
+parlai_dict = DictionaryAgent({'vocab_size': 10004})
 
 dictionary = sorted(dictionary, key=lambda x: x[1])
 print(dictionary[:10])
