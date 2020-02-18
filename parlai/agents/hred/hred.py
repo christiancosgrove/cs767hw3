@@ -427,7 +427,6 @@ class HredAgent(TorchGeneratorAgent):
 
     
     def _set_text_vec(self, obs, history, truncate):
-        print('OBS', obs, history)
         return super()._set_text_vec(obs, history, truncate)
         
     def _model_input(self, batch):
@@ -626,7 +625,6 @@ class HredAgent(TorchGeneratorAgent):
             
         final_candids = final_candids + candidates
         final_candids = [(x, y) for x,y, _ in final_candids]
-        print(final_candids)
         # final_candids = [(temp, sort_key(temp, self.model.options.mmi)) for temp in final_candids]
         final_candids = sorted(final_candids, key=lambda x: -x[1])
         # import pdb; pdb.set_trace()

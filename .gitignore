@@ -141,3 +141,6 @@ heroku-cli-*
 .mypy_cache
 
 dat/
+
+*.dict
+*.dict.opt
