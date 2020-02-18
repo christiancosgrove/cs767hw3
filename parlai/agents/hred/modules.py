@@ -24,20 +24,15 @@ def max_out(x):
 class HRED(nn.Module):
     def __init__(self, options):
         super(HRED, self).__init__()
-        print('INIT')
-        # self.encoder = BigEncoder(options)
+        self.options = options
         self.base_enc = BaseEncoder(options.vocab_size, options.emb_size, options.ut_hid_size, options)
         self.ses_enc = SessionEncoder(options.ses_hid_size, options.ut_hid_size, options)
+        # print(options)
         self.dec = Decoder(options)
-        print('DONE INIT')
         
-    def forward(self, batch):
-        u1 = batch.u1
-        print('u1 shape', u1.shape)
-        u2 = batch.u2
-        u3 = batch.u3
-        # u1, u1_lens, u2, u2_lens, u3, u3_lens = sample_batch[0], sample_batch[1], sample_batch[2], \
-        # sample_batch[3], sample_batch[4], sample_batch[5]
+    def forward(self, sample_batch):
+        u1, u1_lens, u2, u2_lens, u3, u3_lens = sample_batch[0], sample_batch[1], sample_batch[2], \
+        sample_batch[3], sample_batch[4], sample_batch[5]
         if use_cuda:
             u1 = u1.cuda()
             u2 = u2.cuda()
@@ -48,37 +43,6 @@ class HRED(nn.Module):
         preds, lmpreds = self.dec((final_session_o, u3, u3_lens))
         
         return preds, lmpreds
-
-    def reorder_encoder_states(self, encoder_states, indices):
-        """
-        Reorder the encoder states to select only the given batch indices.
-
-        Since encoder_state can be arbitrary, you must implement this yourself.
-        Typically you will just want to index select on the batch dimension.
-        """
-        print('states', encoder_states)
-        return encoder_states
-        # h, c = encoder_states
-        # return h[:, indices, :], c[:, indices, :]
-
-
-# class BigEncoder(nn.Module):
-#     def __init__(self, options):
-#         super(BigEncoder, self).__init__()
-#         self.encoder = BaseEncoder(options.vocab_size, options.emb_size, options.ut_hid_size, options)
-#         self.ses_enc = SessionEncoder(options.ses_hid_size, options.ut_hid_size, options)
-    
-#     def forward(self, u1, u2):
-#         if use_cuda:
-#             u1 = u1.cuda()
-#             u2 = u2.cuda()
-#         # import pdb; pdb.set_trace()
-#         print(u1.shape)
-#         o1, o2 = self.encoder((u1, u1.shape[1])), self.encoder((u2, u2.shape[1]))
-#         qu_seq = torch.cat((o1, o2), 1)
-#         final_session_o = self.ses_enc(qu_seq)
-#         print("what session should be: ", final_session_o)
-#         return final_session_o
     
 # encode each sentence utterance into a single vector
 class BaseEncoder(nn.Module):
@@ -94,8 +58,7 @@ class BaseEncoder(nn.Module):
                           num_layers=self.num_lyr, bidirectional=options.bidi, batch_first=True, dropout=options.drp)
 
     def forward(self, inp):
-        # import pdb; pdb.set_trace()
-        x, x_lens = inp[0], torch.LongTensor([inp[1]]).reshape(1)
+        x, x_lens = inp[0], inp[1]
         # import pdb; pdb.set_trace()
         bt_siz, seq_len = x.size(0), x.size(1)
         h_0 = Variable(torch.zeros(self.direction * self.num_lyr, bt_siz, self.hid_size))
@@ -160,7 +123,7 @@ class Decoder(nn.Module):
         
         self.rnn = nn.GRU(hidden_size=self.hid_size,input_size=self.emb_size,num_layers=self.num_lyr,batch_first=True,dropout=options.drp)
         
-        self.ses_to_decoder = nn.Linear(options.ses_hid_size, self.hid_size)
+        self.ses_to_dec = nn.Linear(options.ses_hid_size, self.hid_size)
         self.dec_inf = nn.Linear(self.hid_size, self.emb_size*2, False)
         self.ses_inf = nn.Linear(options.ses_hid_size, self.emb_size*2, False)
         self.emb_inf = nn.Linear(self.emb_size, self.emb_size*2, True)
@@ -178,7 +141,7 @@ class Decoder(nn.Module):
         
         target_emb = torch.nn.utils.rnn.pack_padded_sequence(target_emb, target_lens, batch_first=True)
         
-        init_hidn = self.tanh(self.ses_to_decoder(ses_encoding))
+        init_hidn = self.tanh(self.ses_to_dec(ses_encoding))
         init_hidn = init_hidn.view(self.num_lyr, target.size(0), self.hid_size)
         
         hid_o, hid_n = self.rnn(target_emb, init_hidn)
@@ -209,9 +172,8 @@ class Decoder(nn.Module):
         
         
     def do_decode(self, siz, seq_len, ses_encoding, target):
-        print("ses_encoding do_decode:", ses_encoding)
-        ses_inf_vec = self.ses_inf(ses_encoding.type(torch.FloatTensor))
-        ses_encoding = self.tanh(self.ses_to_decoder(ses_encoding))
+        ses_inf_vec = self.ses_inf(ses_encoding)
+        ses_encoding = self.tanh(self.ses_to_dec(ses_encoding))
         hid_n, preds, lm_preds = ses_encoding, [], []
         
         hid_n = hid_n.view(self.num_lyr, siz, self.hid_size)
@@ -259,21 +221,21 @@ class Decoder(nn.Module):
         dec_lmo = torch.cat(lm_preds, 1) if self.train_lm else None
         return dec_o, dec_lmo
 
-    def forward(self, ses_encoding, x, x_lens, beam=5):
-        # import pdb; pdb.set_trace()
-        # if len(input) == 1:
-        #     ses_encoding = input
-        #     x, x_lens = None, None
-        #     beam = 5
-        # elif len(input) == 3:
-        #     ses_encoding, x, x_lens = input
-        #     beam = 5
-        # else:
-        #     ses_encoding, x, x_lens, beam = input
-        
+    def forward(self, input):
+        if len(input) == 1:
+            ses_encoding = input
+            x, x_lens = None, None
+            beam = 5
+        elif len(input) == 3:
+            ses_encoding, x, x_lens = input
+            beam = 5
+        else:
+            ses_encoding, x, x_lens, beam = input
+            
         if use_cuda:
             x = x.cuda()
         siz, seq_len = x.size(0), x.size(1)
+        
         # import pdb; pdb.set_trace()
         if self.teacher_forcing:
             dec_o, dec_lm = self.do_decode_tc(ses_encoding, x, x_lens)
