@@ -436,18 +436,28 @@ class HredAgent(TorchGeneratorAgent):
         kwargs['sort'] = True  # need sorted for pack_padded
         b = super().batchify(*args, **kwargs)
         u1s, u2s, u3s = [], [], []
-        for observation in b['observations']:
-            tvec = observation['text_vec']
-            indices = [i for i, x in enumerate(tvec) if x == self.dict['</s>']]
-            try:
-                u1s.append(torch.LongTensor(tvec[1:indices[0]]).reshape(-1))
-                u2s.append(torch.LongTensor(tvec[indices[0]+2:indices[1]]).reshape(-1))
-                u3s.append(torch.LongTensor(tvec[indices[1]+2:indices[2]]).reshape(-1))
-            except IndexError:
-                return Batch()
-            # in case of invalid triple
-            if len(u1s[-1]) <= 0 or len(u2s[-1]) <= 0 or len(u3s[-1]) <= 0:
-                return Batch()
+        if self.is_training:
+            for observation in b['observations']:
+                tvec = observation['text_vec']
+                indices = [i for i, x in enumerate(tvec) if x == self.dict['</s>']]
+                try:
+                    u1s.append(torch.LongTensor(tvec[1:indices[0]]).reshape(-1))
+                    u2s.append(torch.LongTensor(tvec[indices[0]+2:indices[1]]).reshape(-1))
+                    u3s.append(torch.LongTensor(tvec[indices[1]+2:indices[2]]).reshape(-1))
+                except IndexError:
+                    return Batch()
+                # in case of invalid triple
+                if len(u1s[-1]) <= 0 or len(u2s[-1]) <= 0 or len(u3s[-1]) <= 0:
+                    return Batch()
+        else:
+            if len(self.history.history_vecs) >= 2:
+                u1s = [self.history.history_vecs[-2]]
+                u2s = [self.history.history_vecs[-1]]
+                u3s = [[self.dict['hello']]]
+            elif len(self.history.history_vecs) >=1:
+                u1s = [[self.dict['hello']]]
+                u2s = [self.history.history_vecs[-1]]
+                u3s = [[self.dict['hello']]]
 
         u1, u1_lens = self._pad_tensor(u1s)
         u2, u2_lens = self._pad_tensor(u2s)

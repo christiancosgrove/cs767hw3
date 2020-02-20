@@ -9,6 +9,15 @@ tags associated with them.
 """
 
 task_list = [
+	{
+        "id": "movie_triples",
+        "display_name": "movie triples",
+        "task": "amazon_qa",
+        "tags": ["All"],
+        "description": (
+            "This dataset contains dialogue triplets from movies."
+        ),
+    },
     {
         "id": "AmazonQA",
         "display_name": "AmazonQA",

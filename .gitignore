@@ -142,7 +142,7 @@ heroku-cli-*
 
 dat/
 
-*.dict
-*.dict.opt
-*.checkpoint.*
-*.checkpoint
+# *.dict
+# *.dict.opt
+# *.checkpoint.*
+# *.checkpoint
