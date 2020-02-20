@@ -1824,7 +1824,6 @@ class TorchAgent(ABC, Agent):
 
         # create a batch from the vectors
         batch = self.batchify(observations)
-
         if (
             'label_vec' in batch
             and 'text_vec' in batch
@@ -1841,6 +1840,7 @@ class TorchAgent(ABC, Agent):
             )
             self.global_metrics.add('tokens_per_batch', tbp)
 
+        # import pdb; pdb.set_trace()
         if self.is_training:
             output = self.train_step(batch)
         else:

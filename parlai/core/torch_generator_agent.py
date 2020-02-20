@@ -553,6 +553,7 @@ class TorchGeneratorAgent(TorchAgent, ABC):
         If return_output is True, the full output from the call to self.model()
         is also returned, via a (loss, model_output) pair.
         """
+        print('Computing loss on batch', batch)
         if batch.label_vec is None:
             raise ValueError('Cannot compute loss without a label.')
         model_output = self.model(*self._model_input(batch), ys=batch.label_vec)
@@ -591,6 +592,7 @@ class TorchGeneratorAgent(TorchAgent, ABC):
 
         try:
             loss = self.compute_loss(batch)
+            print('Computing loss', loss)
             self.backward(loss)
             self.update_params()
         except RuntimeError as e:

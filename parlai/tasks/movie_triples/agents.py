@@ -68,7 +68,7 @@ class MovieTriplesTeacher(DialogTeacher):
             # label = split[2]
             # yield tuple with information and new_episode? flag (always True)
             # print('Mapped ', trip_mapped)
-            yield (trip_mapped, None, None, None), new_episode
+            yield (trip_mapped, ['placeholder'], None, None), new_episode
         
 class DefaultTeacher(MovieTriplesTeacher):
     pass

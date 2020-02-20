@@ -4,13 +4,14 @@ import time
 import torch.nn.init as init
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from parlai.core.torch_generator_agent import TorchGeneratorAgent
+from parlai.core.torch_generator_agent import TorchGeneratorAgent, PPLMetric
 from parlai.core.torch_agent import Batch
 from parlai.utils.misc import warn_once
 
 from .modules import *
 from .util import *
 from collections import Counter, namedtuple
+from parlai.core.metrics import SumMetric, AverageMetric, BleuMetric, FairseqBleuMetric
 
 
 use_cuda = torch.cuda.is_available()
@@ -318,6 +319,7 @@ class HredAgent(TorchGeneratorAgent):
         super().__init__(opt, shared)
         self.id = 'HRED'
 
+
     def build_model(self, states=None):
         """
         Initialize model, override to change model setup.
@@ -360,6 +362,40 @@ class HredAgent(TorchGeneratorAgent):
             return nn.NLLLoss(ignore_index=self.NULL_IDX, reduction='none')
         else:
             return nn.CrossEntropyLoss(ignore_index=self.NULL_IDX, reduction='none')
+    def compute_loss(self, batch, return_output=False):
+        """
+        Compute and return the loss for the given batch.
+
+        Easily overridable for customized loss functions.
+
+        If return_output is True, the full output from the call to self.model()
+        is also returned, via a (loss, model_output) pair.
+        """
+        print('Computing loss on batch', batch['u1'].shape)
+        if batch.label_vec is None:
+            raise ValueError('Cannot compute loss without a label.')
+        model_output = self.model(self._model_input(batch))
+        scores, preds, *_ = model_output
+        score_view = scores.view(-1, scores.size(-1))
+        loss = self.criterion(score_view, batch.label_vec.view(-1))
+        loss = loss.view(scores.shape[:-1]).sum(dim=1)
+        # save loss to metrics
+        notnull = batch.label_vec.ne(self.NULL_IDX)
+        target_tokens = notnull.long().sum(dim=-1)
+        correct = ((batch.label_vec == preds) * notnull).sum(dim=-1)
+
+        self.record_local_metric('loss', AverageMetric.many(loss, target_tokens))
+        self.record_local_metric('ppl', PPLMetric.many(loss, target_tokens))
+        self.record_local_metric(
+            'token_acc', AverageMetric.many(correct, target_tokens)
+        )
+        # actually do backwards loss
+        loss = loss.sum()
+        loss /= target_tokens.sum()  # average loss per token
+        if return_output:
+            return (loss, model_output)
+        else:
+            return loss
 
     def batchify(self, *args, **kwargs):
         """
@@ -368,11 +404,13 @@ class HredAgent(TorchGeneratorAgent):
         kwargs['sort'] = True  # need sorted for pack_padded
         b = super().batchify(*args, **kwargs)
         tvec = self.history.history_vecs[-1]
-
-        if len(self.history.history_vecs) < 3:
+        # import pdb; pdb.set_trace()
+        if len(self.history.history_vecs) < 1:
             return Batch()
 
         indices = [i for i, x in enumerate(tvec) if x == self.dict['</s>']]
+
+        print(b)
         b['u1'] = torch.LongTensor(tvec[1:indices[0]]).reshape(1, -1)
         b['u2'] = torch.LongTensor(tvec[indices[0]+2:indices[1]]).reshape(1, -1)
         b['u3'] = torch.LongTensor(tvec[indices[1]+2:indices[2]]).reshape(1, -1)
@@ -384,7 +422,9 @@ class HredAgent(TorchGeneratorAgent):
         return super()._set_text_vec(obs, history, truncate)
         
     def _model_input(self, batch):
-        return (batch,)
+        u1, u2, u3 = batch['u1'], batch['u2'], batch['u3']
+        u1_lens, u2_lens, u3_lens = torch.LongTensor([u1.size(1)]), torch.LongTensor([u2.size(1)]), torch.LongTensor([u3.size(1)])
+        return (u1, u1_lens, u2, u2_lens, u3, u3_lens)
 
     def _encoder_input(self, batch):
         return (torch.LongTensor(batch.u1).reshape(1,-1), torch.LongTensor(batch.u2).reshape(1,-1), )
@@ -414,8 +454,8 @@ class HredAgent(TorchGeneratorAgent):
               following postprocessing, e.g. dot logging.
         """
         model = self.model
-        u1, u2, u3 = batch['u1'], batch['u2'], batch['u3']
-        u1_lens, u2_lens, u3_lens = torch.LongTensor([u1.size(1)]), torch.LongTensor([u2.size(1)]), torch.LongTensor([u3.size(1)])
+
+        u1, u1_lens, u2, u2_lens, u3, u3_lens = self._model_input(batch)
         bt_siz = u1.size(0)
             
         if use_cuda:
