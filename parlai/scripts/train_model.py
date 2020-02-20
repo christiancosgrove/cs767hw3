@@ -500,6 +500,7 @@ class TrainLoop:
             self.agent.receive_metrics(valid_report)
 
         # check which metric to look at
+        print('Valid report ', valid_report)
         new_valid = valid_report[opt['validation_metric']]
 
         if isinstance(new_valid, Metric):

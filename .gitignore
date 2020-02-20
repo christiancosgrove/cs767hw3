@@ -144,3 +144,5 @@ dat/
 
 *.dict
 *.dict.opt
+*.checkpoint.*
+*.checkpoint

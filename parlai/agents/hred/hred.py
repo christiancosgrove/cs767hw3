@@ -5,6 +5,7 @@ import torch.nn.init as init
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from parlai.core.torch_generator_agent import TorchGeneratorAgent
+from parlai.core.torch_agent import Batch
 from parlai.utils.misc import warn_once
 
 from .modules import *
@@ -264,57 +265,6 @@ def data_to_seq():
         pickle.dump(all_seqs, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-def uniq_answer(fil):
-    uniq = Counter()
-    with open(fil + '_result.txt', 'r') as fp:
-        all_lines=  fp.readlines()
-        for line in all_lines:
-            resp = line.split("    |    ")
-            uniq[resp[1].strip()] += 1
-    print('uniq', len(uniq), 'from', len(all_lines))
-    print('---all---')
-    for s in uniq.most_common():
-        print(s)
-    
-def main():
-    print('torch version {}'.format(torch.__version__))
-    _dict_file = '/home/harshals/hed-dlg/Data/MovieTriples/Training.dict.pkl'
-    # we use a common dict for all test, train and validation
-    
-    with open(_dict_file, 'rb') as fp2:
-        dict_data = pickle.load(fp2)
-    # dictionary data is like ('</s>', 2, 588827, 785135)
-    # so i believe that the first is the ids are assigned by frequency
-    # thinking to use a counter collection out here maybe
-    inv_dict = {}
-    for x in dict_data:
-        tok, f, _, _ = x
-        inv_dict[f] = tok
-
-    options = get_args()
-    print(options)
-
-    model = HRED(options)
-    if use_cuda:
-        model.cuda()
-
-    if not options.test:
-        train(options, model)
-    else:
-        if options.toy:
-            test_dataset = MovieTriples('test', 100)
-        else:
-            test_dataset = MovieTriples('test')
-        
-        
-        test_dataloader = DataLoader(test_dataset, options.bt_siz, shuffle=True, num_workers=2, collate_fn=custom_collate_fn)
-        # inference_beam(test_dataloader, model, inv_dict, options)
-        uniq_answer(options.name)
-
-
-
-
-
 class HredAgent(TorchGeneratorAgent):
     # lm = True
 
@@ -418,6 +368,10 @@ class HredAgent(TorchGeneratorAgent):
         kwargs['sort'] = True  # need sorted for pack_padded
         b = super().batchify(*args, **kwargs)
         tvec = self.history.history_vecs[-1]
+
+        if len(self.history.history_vecs) < 3:
+            return Batch()
+
         indices = [i for i, x in enumerate(tvec) if x == self.dict['</s>']]
         b['u1'] = torch.LongTensor(tvec[1:indices[0]]).reshape(1, -1)
         b['u2'] = torch.LongTensor(tvec[indices[0]+2:indices[1]]).reshape(1, -1)
@@ -493,88 +447,6 @@ class HredAgent(TorchGeneratorAgent):
 
         return sent, sent
 
-
-
-
-        # model = self.model
-        # if isinstance(model, torch.nn.parallel.DistributedDataParallel):
-        #     model = self.model.module
-        # # session encodings
-        # encoder_states = model.encoder(*self._encoder_input(batch))
-        # if batch.text_vec is not None:
-        #     dev = batch.text_vec.device
-        # else:
-        #     dev = batch.label_vec.device
-
-        # bsz = (
-        #     len(batch.text_lengths)
-        #     if batch.text_lengths is not None
-        #     else len(batch.image)
-        # )
-        # if batch.text_vec is not None:
-        #     batchsize = batch.text_vec.size(0)
-        #     beams = [
-        #         self._treesearch_factory(dev).set_context(
-        #             self._get_context(batch, batch_idx)
-        #         )
-        #         for batch_idx in range(batchsize)
-        #     ]
-        # else:
-        #     beams = [self._treesearch_factory(dev) for _ in range(bsz)]
-
-    
-
-        # # repeat encoder outputs and decoder inputs
-        # decoder_input = (
-        #     torch.LongTensor([self.START_IDX]).expand(bsz * beam_size, 1).to(dev)
-        # )
-
-        # inds = torch.arange(bsz).to(dev).unsqueeze(1).repeat(1, beam_size).view(-1)
-        # encoder_states = model.reorder_encoder_states(encoder_states, inds)
-        # incr_state = None
-
-        
-
-        # for _ts in range(max_ts):
-        #     if all((b.is_done() for b in beams)):
-        #         # exit early if possible
-        #         break
-
-        #     score, incr_state = model.decoder((encoder_states, torch.LongTensor(batch.u3).reshape(1,-1), torch.LongTensor([len(batch.u3)]).reshape(1)))
-        #     # score, incr_state = model.decoder(decoder_input, encoder_states, incr_state)
-        #     # only need the final hidden state to make the word prediction
-        #     score = score[:, -1:, :]
-        #     # import pdb; pdb.set_trace()
-        #     score = model.output(score)
-        #     # score contains softmax scores for bsz * beam_size samples
-        #     score = score.view(bsz, beam_size, -1)
-        #     score = F.log_softmax(score, dim=-1)
-        #     for i, b in enumerate(beams):
-        #         if not b.is_done():
-        #             b.advance(score[i])
-        #     incr_state_inds = torch.cat(
-        #         [
-        #             beam_size * i + b.get_backtrack_from_current_step()
-        #             for i, b in enumerate(beams)
-        #         ]
-        #     )
-        #     incr_state = model.reorder_decoder_incremental_state(
-        #         incr_state, incr_state_inds
-        #     )
-        #     decoder_input = torch.index_select(decoder_input, 0, incr_state_inds)
-        #     selection = torch.cat(
-        #         [b.get_output_from_current_step() for b in beams]
-        #     ).unsqueeze(-1)
-        #     decoder_input = torch.cat([decoder_input, selection], dim=-1)
-
-        # # get all finilized candidates for each sample (and validate them)
-        # n_best_beam_preds_scores = [b.get_rescored_finished() for b in beams]
-
-        # # get the top prediction for each beam (i.e. minibatch sample)
-        # beam_preds_scores = [n_best_list[0] for n_best_list in n_best_beam_preds_scores]
-
-        # return beam_preds_scores, beams
-
     def generate(self, ses_encoding, beam):
         
         diversity_rate = 2
@@ -627,7 +499,6 @@ class HredAgent(TorchGeneratorAgent):
         final_candids = [(x, y) for x,y, _ in final_candids]
         # final_candids = [(temp, sort_key(temp, self.model.options.mmi)) for temp in final_candids]
         final_candids = sorted(final_candids, key=lambda x: -x[1])
-        # import pdb; pdb.set_trace()
 
         return final_candids[:beam]
 
@@ -638,10 +509,10 @@ class HredAgent(TorchGeneratorAgent):
         Overriden to include longest_label
         """
         states = super().state_dict()
-        if hasattr(self.model, 'module'):
-            states['longest_label'] = self.model.module.longest_label
-        else:
-            states['longest_label'] = self.model.longest_label
+        # if hasattr(self.model, 'module'):
+        #     states['longest_label'] = self.model.module.longest_label
+        # else:
+        #     states['longest_label'] = self.model.longest_label
 
         return states
 
