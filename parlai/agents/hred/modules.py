@@ -22,7 +22,7 @@ def max_out(x):
 
 
 class HRED(nn.Module):
-    def __init__(self, options):
+    def __init__(self,  ons):
         super(HRED, self).__init__()
         self.options = options
         self.base_enc = BaseEncoder(options.vocab_size, options.emb_size, options.ut_hid_size, options)
