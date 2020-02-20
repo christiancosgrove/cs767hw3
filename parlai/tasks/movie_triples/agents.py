@@ -70,5 +70,8 @@ class MovieTriplesTeacher(DialogTeacher):
             # print('Mapped ', trip_mapped)
             yield (trip_mapped, ['placeholder'], None, None), new_episode
         
+            # if i > 1000:
+            #     return
+
 class DefaultTeacher(MovieTriplesTeacher):
     pass

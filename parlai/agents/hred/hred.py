@@ -376,6 +376,8 @@ class HredAgent(TorchGeneratorAgent):
             raise ValueError('Cannot compute loss without a label.')
         model_output = self.model(self._model_input(batch))
         scores, preds, *_ = model_output
+        # import pdb; pdb.set_trace()
+        preds = torch.argmax(scores, dim=2)
         score_view = scores.view(-1, scores.size(-1))
         loss = self.criterion(score_view, batch.label_vec.view(-1))
         loss = loss.view(scores.shape[:-1]).sum(dim=1)
@@ -397,6 +399,36 @@ class HredAgent(TorchGeneratorAgent):
         else:
             return loss
 
+    def train_step(self, batch):
+        if 'label_vec' not in batch or batch['label_vec'] is None:
+            return
+
+        super().train_step(batch)
+    def _dummy_batch(self, batchsize, maxlen):
+        """
+        Create a dummy batch.
+
+        This is used to preinitialize the cuda buffer, or otherwise force a
+        null backward pass after an OOM.
+
+        If your model uses additional inputs beyond text_vec and label_vec,
+        you will need to override it to add additional fields.
+        """
+        b = Batch(
+            text_vec=torch.ones(batchsize, maxlen).long().cuda(),
+            label_vec=torch.ones(batchsize, maxlen).long().cuda(),
+            text_lengths=[maxlen] * batchsize,
+        
+        )
+        b['u1'] = b['text_vec']
+        b['u2'] = b['text_vec']
+        b['u3'] = b['text_vec']
+
+        b['u1_lens'] = b['text_lengths']
+        b['u2_lens'] = b['text_lengths']
+        b['u3_lens'] = b['text_lengths']
+
+        return b
     def batchify(self, *args, **kwargs):
         """
         Override batchify options for seq2seq.
@@ -407,11 +439,12 @@ class HredAgent(TorchGeneratorAgent):
         for observation in b['observations']:
             tvec = observation['text_vec']
             indices = [i for i, x in enumerate(tvec) if x == self.dict['</s>']]
-
-            u1s.append(torch.LongTensor(tvec[1:indices[0]]).reshape(-1))
-            u2s.append(torch.LongTensor(tvec[indices[0]+2:indices[1]]).reshape(-1))
-            u3s.append(torch.LongTensor(tvec[indices[1]+2:indices[2]]).reshape(-1))
-
+            try:
+                u1s.append(torch.LongTensor(tvec[1:indices[0]]).reshape(-1))
+                u2s.append(torch.LongTensor(tvec[indices[0]+2:indices[1]]).reshape(-1))
+                u3s.append(torch.LongTensor(tvec[indices[1]+2:indices[2]]).reshape(-1))
+            except IndexError:
+                return Batch()
             # in case of invalid triple
             if len(u1s[-1]) <= 0 or len(u2s[-1]) <= 0 or len(u3s[-1]) <= 0:
                 return Batch()
@@ -428,6 +461,10 @@ class HredAgent(TorchGeneratorAgent):
         b['u2_lens'] = u2_lens
         b['u3'] = u3
         b['u3_lens'] = u3_lens
+
+
+        if u1 is None or u2 is None or u3 is None:
+            return Batch()
 
         return b
 
