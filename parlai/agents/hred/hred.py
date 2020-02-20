@@ -371,7 +371,7 @@ class HredAgent(TorchGeneratorAgent):
         If return_output is True, the full output from the call to self.model()
         is also returned, via a (loss, model_output) pair.
         """
-        print('Computing loss on batch', batch['u1'].shape)
+        # print('Computing loss on batch', batch['u1'].shape)
         if batch.label_vec is None:
             raise ValueError('Cannot compute loss without a label.')
         model_output = self.model(self._model_input(batch))
@@ -403,17 +403,31 @@ class HredAgent(TorchGeneratorAgent):
         """
         kwargs['sort'] = True  # need sorted for pack_padded
         b = super().batchify(*args, **kwargs)
-        tvec = self.history.history_vecs[-1]
-        # import pdb; pdb.set_trace()
-        if len(self.history.history_vecs) < 1:
-            return Batch()
+        u1s, u2s, u3s = [], [], []
+        for observation in b['observations']:
+            tvec = observation['text_vec']
+            indices = [i for i, x in enumerate(tvec) if x == self.dict['</s>']]
 
-        indices = [i for i, x in enumerate(tvec) if x == self.dict['</s>']]
+            u1s.append(torch.LongTensor(tvec[1:indices[0]]).reshape(-1))
+            u2s.append(torch.LongTensor(tvec[indices[0]+2:indices[1]]).reshape(-1))
+            u3s.append(torch.LongTensor(tvec[indices[1]+2:indices[2]]).reshape(-1))
 
-        print(b)
-        b['u1'] = torch.LongTensor(tvec[1:indices[0]]).reshape(1, -1)
-        b['u2'] = torch.LongTensor(tvec[indices[0]+2:indices[1]]).reshape(1, -1)
-        b['u3'] = torch.LongTensor(tvec[indices[1]+2:indices[2]]).reshape(1, -1)
+            # in case of invalid triple
+            if len(u1s[-1]) <= 0 or len(u2s[-1]) <= 0 or len(u3s[-1]) <= 0:
+                return Batch()
+
+        u1, u1_lens = self._pad_tensor(u1s)
+        u2, u2_lens = self._pad_tensor(u2s)
+        u3, u3_lens = self._pad_tensor(u3s)
+
+        b['label_vec'] = u3
+
+        b['u1'] = u1
+        b['u1_lens'] = u1_lens
+        b['u2'] = u2
+        b['u2_lens'] = u2_lens
+        b['u3'] = u3
+        b['u3_lens'] = u3_lens
 
         return b
 
@@ -423,7 +437,7 @@ class HredAgent(TorchGeneratorAgent):
         
     def _model_input(self, batch):
         u1, u2, u3 = batch['u1'], batch['u2'], batch['u3']
-        u1_lens, u2_lens, u3_lens = torch.LongTensor([u1.size(1)]), torch.LongTensor([u2.size(1)]), torch.LongTensor([u3.size(1)])
+        u1_lens, u2_lens, u3_lens = batch['u1_lens'], batch['u2_lens'], batch['u3_lens']
         return (u1, u1_lens, u2, u2_lens, u3, u3_lens)
 
     def _encoder_input(self, batch):

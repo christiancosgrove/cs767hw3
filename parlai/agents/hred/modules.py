@@ -66,7 +66,7 @@ class BaseEncoder(nn.Module):
             h_0 = h_0.cuda()
         x_emb = self.embed(x)
         x_emb = self.drop(x_emb)
-        x_emb = torch.nn.utils.rnn.pack_padded_sequence(x_emb, x_lens, batch_first=True)
+        x_emb = torch.nn.utils.rnn.pack_padded_sequence(x_emb, x_lens, batch_first=True, enforce_sorted=False)
         x_o, x_hid = self.rnn(x_emb, h_0)
         # assuming dimension 0, 1 is for layer 1 and 2, 3 for layer 2
         if self.direction == 2:
@@ -139,7 +139,7 @@ class Decoder(nn.Module):
         # below will be used later as a crude approximation of an LM
         emb_inf_vec = self.emb_inf(target_emb)
         
-        target_emb = torch.nn.utils.rnn.pack_padded_sequence(target_emb, target_lens, batch_first=True)
+        target_emb = torch.nn.utils.rnn.pack_padded_sequence(target_emb, target_lens, batch_first=True, enforce_sorted=False)
         
         init_hidn = self.tanh(self.ses_to_dec(ses_encoding))
         init_hidn = init_hidn.view(self.num_lyr, target.size(0), self.hid_size)

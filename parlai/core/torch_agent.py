@@ -1840,7 +1840,6 @@ class TorchAgent(ABC, Agent):
             )
             self.global_metrics.add('tokens_per_batch', tbp)
 
-        # import pdb; pdb.set_trace()
         if self.is_training:
             output = self.train_step(batch)
         else:
