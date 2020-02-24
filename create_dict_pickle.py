@@ -2,8 +2,8 @@ import pickle
 import os
 from parlai.core.dict import DictionaryAgent
 
-path = os.path.join(os.path.expanduser("~"), 'Downloads/dat/MovieTriples_Dataset')
-# path = 'dat/MovieTriples_Dataset'
+# path = os.path.join(os.path.expanduser("~"), 'Downloads/dat/MovieTriples_Dataset')
+path = 'dat/MovieTriples_Dataset'
 
 with open(os.path.join(path, 'Training.dict.pkl'), 'rb') as data_file:
     dictionary = pickle.load(data_file)

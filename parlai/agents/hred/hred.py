@@ -20,6 +20,10 @@ np.random.seed(123)
 if use_cuda:
     torch.cuda.manual_seed(123)
 
+### Begin Harshal code
+# This code is not used for now.
+
+
 def get_args():
     parser = argparse.ArgumentParser(description='HRED parameter options')
     parser.add_argument('-n', dest='name', help='enter suffix for model files', required=True)
@@ -264,6 +268,8 @@ def data_to_seq():
 
     with open('CustomTest.pkl', 'wb') as handle:
         pickle.dump(all_seqs, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+# End Harshal code
 
 
 class HredAgent(TorchGeneratorAgent):
