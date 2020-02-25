@@ -9,7 +9,9 @@ with open(os.path.join(path, 'Training.dict.pkl'), 'rb') as data_file:
     dictionary = pickle.load(data_file)
 
 
-parlai_dict = DictionaryAgent({'vocab_size': 10004})
+parlai_dict = DictionaryAgent({'vocab_size': 10004})#, 'dict_nulltoken':None, 'dict_starttoken':None, 'dict_endtoken':None,'dict_unktoken':None})
+
+parlai_dict.default_tok = 'space'
 
 dictionary = sorted(dictionary, key=lambda x: x[1])
 print(dictionary[:10])

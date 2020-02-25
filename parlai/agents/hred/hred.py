@@ -43,7 +43,7 @@ def get_args():
     parser.add_argument('-lr', dest='lr', type=float, default=0.001, help='learning rate for optimizer')
     parser.add_argument('-bs', dest='bt_siz', type=int, default=100, help='batch size')
     parser.add_argument('-bms', dest='beam', type=int, default=1, help='beam size for decoding')
-    parser.add_argument('-vsz', dest='vocab_size', type=int, default=10004, help='size of vocabulary')
+    parser.add_argument('-vsz', dest='vocab_size', type=int, default=10005, help='size of vocabulary')
     parser.add_argument('-esz', dest='emb_size', type=int, default=300, help='embedding size enc/dec same')
     parser.add_argument('-uthid', dest='ut_hid_size', type=int, default=600, help='encoder utterance hidden state')
     parser.add_argument('-seshid', dest='ses_hid_size', type=int, default=1200, help='encoder session hidden state')
@@ -297,7 +297,7 @@ class HredAgent(TorchGeneratorAgent):
         agent.add_argument('-lr', dest='lr', type=float, default=0.001, help='learning rate for optimizer')
         agent.add_argument('-bs', dest='bt_siz', type=int, default=100, help='batch size')
         agent.add_argument('-bms', dest='beam', type=int, default=1, help='beam size for decoding')
-        agent.add_argument('-vsz', dest='vocab_size', type=int, default=10004, help='size of vocabulary')
+        agent.add_argument('-vsz', dest='vocab_size', type=int, default=1008, help='size of vocabulary')
         agent.add_argument('-esz', dest='emb_size', type=int, default=300, help='embedding size enc/dec same')
         agent.add_argument('-uthid', dest='ut_hid_size', type=int, default=600, help='encoder utterance hidden state')
         agent.add_argument('-seshid', dest='ses_hid_size', type=int, default=1200, help='encoder session hidden state')
@@ -464,10 +464,18 @@ class HredAgent(TorchGeneratorAgent):
                 u1s = [[self.dict['hello']]]
                 u2s = [self.history.history_vecs[-1]]
                 u3s = [[self.dict['hello']]]
-
+        # print('u1s',len(u1s),'u2s',len(u2s),'u3s',len(u3s))
+        # print('u1s lens ', [x.size(0) for x in u1s])
+        # print('u2s lens ', [x.size(0) for x in u2s])
+        # print('u3s lens ', [x.size(0) for x in u3s])
         u1, u1_lens = self._pad_tensor(u1s)
         u2, u2_lens = self._pad_tensor(u2s)
         u3, u3_lens = self._pad_tensor(u3s)
+
+
+        # print('u1 ITEM ', u1.max().item())
+        # print('u2 ITEM ', u2.max().item())
+        # print('u3 ITEM ', u3.max().item())
 
         b['label_vec'] = u3
 
