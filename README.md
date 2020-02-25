@@ -3,6 +3,7 @@ Christian Cosgrove, Darius Irani, Jung Min Lee
 
 ## Getting started
 1. Download and extract the MovieTriples data into `dat/MovieTriples_Dataset/`.
+1. `git lfs fetch` to get the model files from Git LFS
 1. `python create_dict_pickle.py`
 1. `python examples/train_model.py -t movie_triples -m hred/hred -mf test_hred --datapath dat -vsz 10008 -stim 30 -bms 20 -e 80 -seshid 300 -uthid 300 -drp 0.4 -lr 0.0005 --batchsize 50 --truncate 256 --optimizer adam`
 1. `python examples/interactive.py -m hred/hred -mf test_hred.checkpoint.checkpoint`
@@ -17,7 +18,7 @@ What we modified:
 
 1. Dictionary creation. Part of the challenge of working with the MovieTriples data is that it has custom separation/person tokens. Rather than hardcoding this, we wanted to use the most ParlAI-friendly code. Noticing that `train_model.py` will load a `.dict` file if it is already present, we wrote code to generate a ParlAI dictionary directly from the dictionary provided with the MovieTriples data. Run `create_dict_pickle.py` to generate a ParlAI `.dict` before running `train_model.py` or `interactive.py` to ensure that tokens are mapped correctly.
 
-1. `HredAgent` -- This is the core ParlAI code for the HRED model. It inherits from `TorchGeneratorAgent`, which provides scaffolding code for an encoder-decoder-type model. However, we were unable to rely on most of the initial code because it was designed for a single encoder and decoder; in our case, we have two encoders (utterance encoder and session encoder), the first of which is called multiple times (on each of the input utterances). Therefore, we had to override the `_generate` and `_compute_loss` methods in `HredAgent`, calling Harshal's code instead.
+1. `HredAgent` -- This is t]he core ParlAI code for the HRED model. It inherits from `TorchGeneratorAgent`, which provides scaffolding code for an encoder-decoder-type model. However, we were unable to rely on most of the initial code because it was designed for a single encoder and decoder; in our case, we have two encoders (utterance encoder and session encoder), the first of which is called multiple times (on each of the input utterances). Therefore, we had to override the `_generate` and `_compute_loss` methods in `HredAgent`, calling Harshal's code instead.
 
 1. Alexa integration. TODO
 
