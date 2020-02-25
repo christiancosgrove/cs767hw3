@@ -7,6 +7,7 @@ Christian Cosgrove, Darius Irani, Jung Min Lee
 1. `python create_dict_pickle.py`
 1. `python examples/train_model.py -t movie_triples -m hred/hred -mf test_hred --datapath dat -vsz 10008 -stim 30 -bms 20 -e 80 -seshid 300 -uthid 300 -drp 0.4 -lr 0.0005 --batchsize 50 --truncate 256 --optimizer adam`
 1. `python examples/interactive.py -m hred/hred -mf test_hred.checkpoint.checkpoint`
+1. `python alexa_server2.py`
 
 ### How we added HRED
 
@@ -20,14 +21,23 @@ What we modified:
 
 1. `HredAgent` -- This is t]he core ParlAI code for the HRED model. It inherits from `TorchGeneratorAgent`, which provides scaffolding code for an encoder-decoder-type model. However, we were unable to rely on most of the initial code because it was designed for a single encoder and decoder; in our case, we have two encoders (utterance encoder and session encoder), the first of which is called multiple times (on each of the input utterances). Therefore, we had to override the `_generate` and `_compute_loss` methods in `HredAgent`, calling Harshal's code instead.
 
-1. Alexa integration. Using [flask-ask]() We followed [this tutorial](https://developer.amazon.com/blogs/post/Tx14R0IYYGH3SKT/Flask-Ask:-A-New-Python-Framework-for-Rapid-Alexa-Skills-Kit-Development) to create an alexa endpoint. We used ngrok to host.
+1. Alexa integration. Using [flask-ask](https://github.com/johnwheeler/flask-ask) We followed [this tutorial](https://developer.amazon.com/blogs/post/Tx14R0IYYGH3SKT/Flask-Ask:-A-New-Python-Framework-for-Rapid-Alexa-Skills-Kit-Development) to create an alexa endpoint. We used ngrok to host.
 
 One challenge we ran into was integrating the Alexa webservice with ParlAI. The best way to do this would probably have been to write a custom agent and run `world.parley` between the Alexa webservice agent and the model. Instead, we opted to call `interactive.py` using subprocess pipes--this quick fix worked well for us.
 
+![alexa sample](https://raw.githubusercontent.com/christiancosgrove/cs767hw3/master/alexa_sample.png)
 
 ### Sample conversations
 
 Output of model trained for roughly 12 hrs:
+
+It achieved the following statistics on the training set (we didn't get the chance to implement validation set logic for MovieTriples):
+
+```
+[ time:43019.0s total_exs:7122850 epochs:36.28 ] {'exs': 350, 'loss': 2.066, 'ppl': 7.891, 'token_acc': 0.6367, 'tokens_per_batch': 3363.0, 'gnorm': 0.763, 'clip': 1.0, 'updates': 7, 'lr': 0.0005, 'gpu_mem_percent': 0.5598, 'total_train_updates': 132620}
+
+```
+
 
 ```
 /home/christian/developer/cs767hw3/parlai/agents/hred/hred.py:580: UserWarning: volatile was removed and now has no effect. Use `with torch.no_grad():` instead.
