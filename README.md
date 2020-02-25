@@ -21,7 +21,7 @@ What we modified:
 
 1. `HredAgent` -- This is t]he core ParlAI code for the HRED model. It inherits from `TorchGeneratorAgent`, which provides scaffolding code for an encoder-decoder-type model. However, we were unable to rely on most of the initial code because it was designed for a single encoder and decoder; in our case, we have two encoders (utterance encoder and session encoder), the first of which is called multiple times (on each of the input utterances). Therefore, we had to override the `_generate` and `_compute_loss` methods in `HredAgent`, calling Harshal's code instead.
 
-1. Alexa integration. Using [flask-ask]() We followed [this tutorial](https://developer.amazon.com/blogs/post/Tx14R0IYYGH3SKT/Flask-Ask:-A-New-Python-Framework-for-Rapid-Alexa-Skills-Kit-Development) to create an alexa endpoint. We used ngrok to host.
+1. Alexa integration. Using [flask-ask](https://github.com/johnwheeler/flask-ask) We followed [this tutorial](https://developer.amazon.com/blogs/post/Tx14R0IYYGH3SKT/Flask-Ask:-A-New-Python-Framework-for-Rapid-Alexa-Skills-Kit-Development) to create an alexa endpoint. We used ngrok to host.
 
 One challenge we ran into was integrating the Alexa webservice with ParlAI. The best way to do this would probably have been to write a custom agent and run `world.parley` between the Alexa webservice agent and the model. Instead, we opted to call `interactive.py` using subprocess pipes--this quick fix worked well for us.
 
