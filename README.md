@@ -31,6 +31,14 @@ One challenge we ran into was integrating the Alexa webservice with ParlAI. The 
 
 Output of model trained for roughly 12 hrs:
 
+It achieved the following statistics on the training set (we didn't get the chance to implement validation set logic for MovieTriples):
+
+```
+[ time:43019.0s total_exs:7122850 epochs:36.28 ] {'exs': 350, 'loss': 2.066, 'ppl': 7.891, 'token_acc': 0.6367, 'tokens_per_batch': 3363.0, 'gnorm': 0.763, 'clip': 1.0, 'updates': 7, 'lr': 0.0005, 'gpu_mem_percent': 0.5598, 'total_train_updates': 132620}
+
+```
+
+
 ```
 /home/christian/developer/cs767hw3/parlai/agents/hred/hred.py:580: UserWarning: volatile was removed and now has no effect. Use `with torch.no_grad():` instead.
   _target = Variable(torch.LongTensor([seq]), volatile=True)
