@@ -21,12 +21,18 @@ def welcome():
 @ask.intent("AskDeepPavlov", mapping={'user_input':'raw_input'})
 def response_from_model(user_input):
 	while True:
-		p.stdin.write(b'a line\n')
+		# p.stdin.write(b'a line\n')
+		# p.stdin.flush()
+		# response = p.stdout.readline()
+		# response = subprocess.check_output(user_input).decode()
+		# response = response[7:] # Should get rid of [HRED]: 
+		# return question(response).reprompt("This is a debugger to check we're still in HRED")
+
+		p.stdin.write(user_input)
 		p.stdin.flush()
 		response = p.stdout.readline()
-		response = subprocess.check_output(user_input).decode()
-		response = response[7:] # Should get rid of [HRED]: 
-		return question(response).reprompt("This is a debugger to check we're still in HRED")
+		response = response[7:]
+		return question(response).reprompt("")
 
 
 def start_model():
