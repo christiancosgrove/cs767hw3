@@ -20,7 +20,6 @@ def welcome():
 
 @ask.intent("AskDeepPavlov", mapping={'user_input':'raw_input'})
 def response_from_model(user_input):
-	user_input = 'Hello'
 	while True:
 		p.stdin.write(b'a line\n')
 		p.stdin.flush()
