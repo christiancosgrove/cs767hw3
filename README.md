@@ -7,6 +7,7 @@ Christian Cosgrove, Darius Irani, Jung Min Lee
 1. `python create_dict_pickle.py`
 1. `python examples/train_model.py -t movie_triples -m hred/hred -mf test_hred --datapath dat -vsz 10008 -stim 30 -bms 20 -e 80 -seshid 300 -uthid 300 -drp 0.4 -lr 0.0005 --batchsize 50 --truncate 256 --optimizer adam`
 1. `python examples/interactive.py -m hred/hred -mf test_hred.checkpoint.checkpoint`
+1. `python alexa_server2.py`
 
 ### How we added HRED
 
@@ -24,6 +25,7 @@ What we modified:
 
 One challenge we ran into was integrating the Alexa webservice with ParlAI. The best way to do this would probably have been to write a custom agent and run `world.parley` between the Alexa webservice agent and the model. Instead, we opted to call `interactive.py` using subprocess pipes--this quick fix worked well for us.
 
+![alexa sample](https://raw.githubusercontent.com/christiancosgrove/cs767hw3/master/alexa_sample.png)
 
 ### Sample conversations
 
