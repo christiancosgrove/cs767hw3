@@ -3,7 +3,7 @@ Christian Cosgrove, Darius Irani, Jung Min Lee
 
 ## Getting started
 1. Download and extract the MovieTriples data into `dat/MovieTriples_Dataset/`.
-1. `git lfs fetch --all` to get the model files from Git LFS
+1. `git lfs fetch --all` to get the model files from Git LFS (Might not be necessary if you had LFS installed prior to cloning the repo)
 1. `python create_dict_pickle.py`
 1. `python examples/train_model.py -t movie_triples -m hred/hred -mf test_hred --datapath dat -vsz 10008 -stim 30 -bms 20 -e 80 -seshid 300 -uthid 300 -drp 0.4 -lr 0.0005 --batchsize 50 --truncate 256 --optimizer adam`
 1. `python examples/interactive.py -m hred/hred -mf test_hred.checkpoint.checkpoint`
