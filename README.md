@@ -20,8 +20,44 @@ What we modified:
 
 1. `HredAgent` -- This is t]he core ParlAI code for the HRED model. It inherits from `TorchGeneratorAgent`, which provides scaffolding code for an encoder-decoder-type model. However, we were unable to rely on most of the initial code because it was designed for a single encoder and decoder; in our case, we have two encoders (utterance encoder and session encoder), the first of which is called multiple times (on each of the input utterances). Therefore, we had to override the `_generate` and `_compute_loss` methods in `HredAgent`, calling Harshal's code instead.
 
-1. Alexa integration. TODO
+1. Alexa integration. Using [flask-ask]() We followed [this tutorial](https://developer.amazon.com/blogs/post/Tx14R0IYYGH3SKT/Flask-Ask:-A-New-Python-Framework-for-Rapid-Alexa-Skills-Kit-Development) to create an alexa endpoint. We used ngrok to host.
 
+One challenge we ran into was integrating the Alexa webservice with ParlAI. The best way to do this would probably have been to write a custom agent and run `world.parley` between the Alexa webservice agent and the model. Instead, we opted to call `interactive.py` using subprocess pipes--this quick fix worked well for us.
+
+
+### Sample conversations
+
+Output of model trained for roughly 12 hrs:
+
+```
+/home/christian/developer/cs767hw3/parlai/agents/hred/hred.py:580: UserWarning: volatile was removed and now has no effect. Use `with torch.no_grad():` instead.
+  _target = Variable(torch.LongTensor([seq]), volatile=True)
+[metrics]: {'loss': AverageMetric(0.0004177), 'ppl': PPLMetric(1), 'token_acc': AverageMetric(1)}
+[HRED]: no no no . . no no no no no no one . . . <continued_utterance> <continued_utterance> . <person> <continued_utterance>
+Enter Your Message: how are you doing today?
+[metrics]: {'loss': AverageMetric(0.0003052), 'ppl': PPLMetric(1), 'token_acc': AverageMetric(1)}
+[HRED]: i i ' ' m m m . . . . . i i i i i i i i
+Enter Your Message: What's up?
+[metrics]: {'loss': AverageMetric(0.01836), 'ppl': PPLMetric(1.019), 'token_acc': AverageMetric(1)}
+[HRED]: i . . i . . i . . m m afraid . i i i i i i .
+Enter Your Message: 
+```
+
+The model tends to repeat tokens multiple times---we are not sure why this happens (possibly because of no teacher forcing?)
+
+
+```
+/home/christian/developer/cs767hw3/parlai/agents/hred/hred.py:580: UserWarning: volatile was removed and now has no effect. Use `with torch.no_grad():` instead.
+  _target = Variable(torch.LongTensor([seq]), volatile=True)
+[metrics]: {'loss': AverageMetric(0.0001736), 'ppl': PPLMetric(1), 'token_acc': AverageMetric(1)}
+[HRED]: i i i m fine wondering wondering wondering wondering wondering wondering . . . . <continued_utterance> i m ' just
+Enter Your Message: what are you wondering about?
+[metrics]: {'loss': AverageMetric(0.0003471), 'ppl': PPLMetric(1), 'token_acc': AverageMetric(1)}
+[HRED]: i i ' ' m m m . . . . . i i i i i to to to
+Enter Your Message: it's ok
+[metrics]: {'loss': AverageMetric(0.0006313), 'ppl': PPLMetric(1.001), 'token_acc': AverageMetric(1)}
+[HRED]: i . . i . . i
+```
 
 ### Problems we ran into
 
