@@ -592,7 +592,6 @@ class TorchGeneratorAgent(TorchAgent, ABC):
 
         try:
             loss = self.compute_loss(batch)
-            print('Computing loss', loss)
             self.backward(loss)
             self.update_params()
         except RuntimeError as e:

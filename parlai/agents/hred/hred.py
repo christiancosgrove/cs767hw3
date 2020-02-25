@@ -338,6 +338,8 @@ class HredAgent(TorchGeneratorAgent):
         # import pdb; pdb.set_trace()
         model = HRED(options_type(**opt))
         
+        model.dec.set_tc_ratio(0.0) # Let's not use teacher forcing
+
         if opt.get('dict_tokenizer') == 'bpe' and opt['embedding_type'] != 'random':
             print('skipping preinitialization of embeddings for bpe')
         elif not states and opt['embedding_type'] != 'random':

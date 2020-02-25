@@ -4,7 +4,7 @@ Christian Cosgrove, Darius Irani, Jung Min Lee
 ## Getting started
 1. Download and extract the MovieTriples data into `dat/MovieTriples_Dataset/`.
 1. `python create_dict_pickle.py`
-1. `python examples/train_model.py -t movie_triples -m hred/hred -mf test_hred.checkpoint --datapath dat -vsz 10004 -stim 30 -tc -bms 20 -bs 100 -e 80 -seshid 300 -uthid 300 -drp 0.4 -lr 0.0005 --batchsize 25 --truncate 64`
+1. `python examples/train_model.py -t movie_triples -m hred/hred -mf test_hred --datapath dat -vsz 10008 -stim 30 -bms 20 -e 80 -seshid 300 -uthid 300 -drp 0.4 -lr 0.0005 --batchsize 50 --truncate 256 --optimizer adam`
 1. `python examples/interactive.py -m hred/hred -mf test_hred.checkpoint.checkpoint`
 
 ### How we added HRED
@@ -24,7 +24,14 @@ What we modified:
 
 ### Problems we ran into
 
-While we are able to run `train_model.py` for a few minutes, we are encountering a mysterious CUDA error that causes training to crash. We are not sure what is causing this error (no error message printed). Because of limited training time, our model outputs are poor.
+1. Because we were training for a limited time, we wanted the model to learn to generate responses immediately, rather than "cheating" through teacher forcing. Therefore, we set teacher_forcing=False and set the teacher forcing probability to zero. Perhaps if we trained for longer, we would use teacher forcing and anneal this probability to zero with training.
+
+
+
+
+While we are able to run `train_model.py` for a few minutes, we are encountering a mysterious CUDA error that causes training to crash. We are not sure what is causing this error (no error message printed). Because of limited training time, our model outputs were poor.
+
+**FIX:** we had to increase the vocabulary size from 10004 to 10008.
 
 ```
 python examples/train_model.py -t movie_triples -m hred/hred -mf test_hred.checkpoint --datapath dat -vsz 10004 -stim 30 -tc -bms 20 -bs 100 -e 80 -seshid 300 -uthid 300 -drp 0.4 -lr 0.0005 --batchsize 25 --truncate 64
